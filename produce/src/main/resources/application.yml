@@ -1,0 +1,7 @@
+spring:
+  application:
+    name: springboot-produce
+  profiles:
+    active: ${ENVIRONMENT:pro}
+server:
+  port: 10090

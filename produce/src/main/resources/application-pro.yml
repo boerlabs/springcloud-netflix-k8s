@@ -1,0 +1,28 @@
+management:
+  endpoints:
+    web:
+      base-path: /actuator/
+      exposure:
+        include: health,info,env,shutdown,heapdump,metrics,prometheus,threaddump
+  endpoint:
+    shutdown:
+      enabled: true
+  metrics:
+    tags:
+      application: ${spring.application.name}
+eureka:
+  instance:
+    preferIpAddress: true
+  client:
+    serviceUrl:
+      defaultZone: http://eureka-0.eureka.default.svc.cluster.local:8761/eureka,http://eureka-1.eureka.default.svc.cluster.local:8761/eureka,http://eureka-2.eureka.default.svc.cluster.local:8761/eureka
+logging:
+  logging:
+    config: classpath:logback-spring.xml
+#  file:
+#    max-size: 10KB
+#    max-history: 7
+#    path: logs
+#    name: logs/${HOSTNAME}.${spring.application.name}.log
+#  pattern:
+#    rolling-file-name: "logs/${HOSTNAME}.${spring.application.name}.%d{yyyyMMdd}.%i.log"

@@ -1,0 +1,41 @@
+management:
+  endpoints:
+    web:
+      base-path: /actuator/
+      exposure:
+        include: health,info,env,shutdown,heapdump,metrics,prometheus,threaddump
+  endpoint:
+    shutdown:
+      enabled: true
+eureka:
+  instance:
+    preferIpAddress: true
+  client:
+    serviceUrl:
+      defaultZone: http://127.0.0.1:8761/eureka
+    enabled: true
+spring:
+  cloud:
+    loadbalancer:
+      ribbon:
+        enabled: false
+  sleuth:
+    sampler:
+      rate: 1
+  zipkin:
+    base-url: http://10.10.253.11:9411/
+  datasource:
+    url: jdbc:mysql://172.17.134.57:3306/ceshi
+    username: root
+    password: MzUwZjdlNW
+    driver-class-name: com.mysql.cj.jdbc.Driver
+logging:
+  config: classpath:logback-spring.xml
+## https://github:com/logstash/logstash-logback-encoder#composite-encoderlayout:
+#  file:
+#    max-size: 10KB
+#    max-history: 7
+#    path: logs
+#    name: logs/${HOSTNAME}.${spring.application.name}.log
+#  pattern:
+#    rolling-file-name: "logs/${HOSTNAME}.${spring.application.name}.%d{yyyyMMdd}.%i.log"

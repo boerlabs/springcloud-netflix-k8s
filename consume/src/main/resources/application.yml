@@ -1,0 +1,7 @@
+spring:
+  application:
+    name: springboot-consume
+  profiles:
+    active: ${ENVIRONMENT:pro}
+server:
+  port: 10086

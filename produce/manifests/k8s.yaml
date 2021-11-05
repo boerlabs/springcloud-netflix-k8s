@@ -1,0 +1,120 @@
+apiVersion: apps/v1 # for versions before 1.9.0 use apps/v1beta2
+kind: Deployment
+metadata:
+  name: produce-deployment
+  annotations:
+    kubernetes.io/change-cause: <CHANGE_CAUSE>
+spec:
+  selector:
+    matchLabels:
+      app: produce
+  replicas: 2 # tells deployment to run 2 pods matching the template
+  template:
+    metadata:
+      labels:
+        app: produce
+    spec:
+      initContainers:
+        - image: registry.meitianiot.lo/public/skywalking-agent:8.1.0
+          name: skywalking-agent
+          imagePullPolicy: IfNotPresent
+          command: ['sh']
+          args: ['-c','cp -r /usr/skywalking/agent/* /skywalking/agent']
+          volumeMounts:
+            - mountPath: /skywalking/agent
+              name: skywalking-agent
+      containers:
+        - name: produce
+          image: <IMAGE>:<IMAGE_TAG>
+          imagePullPolicy: IfNotPresent
+          volumeMounts:
+            - mountPath: /usr/skywalking/agent
+              name: skywalking-agent
+            - mountPath: /opt/logs
+              name: app-logs
+          ports:
+            - containerPort: 10080
+          resources:
+            requests:
+              memory: "512Mi"
+              cpu: "200m"
+            limits:
+              memory: "1Gi"
+              cpu: "600m"
+          env:
+            - name: ENVIRONMENT
+              value: "pro"
+            - name: SW_AGENT_NAME
+              value: "springboot-produce"
+            - name: JVM_OPTS
+              value: "-Xms512m -Xmx512m -javaagent:/usr/skywalking/agent/skywalking-agent.jar"
+          livenessProbe:
+            httpGet:
+              path: /actuator/health
+              port: 10080
+            initialDelaySeconds: 120
+            periodSeconds: 10
+            timeoutSeconds: 5
+          readinessProbe:
+            httpGet:
+              path: /actuator/health
+              port: 10080
+            initialDelaySeconds: 60
+            periodSeconds: 10
+            timeoutSeconds: 5
+          lifecycle:
+            preStop:
+              exec:
+                command:
+                  - "curl"
+                  - "-XPOST"
+                  - "http://127.0.0.1:10080/actuator/shutdown"
+      imagePullSecrets:
+        - name: regcred
+      volumes:
+        - name: skywalking-agent
+          emptyDir: {}
+        - name: app-logs
+          hostPath:
+            path: /opt/app-logs/produce
+            type: DirectoryOrCreate
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: produce-service
+  annotations:
+    prometheus.io/path: /actuator/prometheus
+    prometheus.io/port: "10080"
+    prometheus.io/scrape: "true"
+    # metallb.universe.tf/address-pool: default
+  labels:
+    app: produce
+spec:
+  # type: LoadBalancer
+  # type: NodePort
+  type: ClusterIP
+  ports:
+    - port: 10080
+      targetPort: 10080
+      # nodePort: 31090
+  selector:
+    app: produce
+---
+apiVersion: networking.k8s.io/v1beta1
+kind: Ingress
+metadata:
+  name: produce-ingress
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+    nginx.ingress.kubernetes.io/load-balance: "ip_hash"
+    nginx.ingress.kubernetes.io/upstream-hash-by: "$request_uri"
+spec:
+  rules:
+    - host: <INGRESS>.meitianiot.lo
+      http:
+        paths:
+          - path: /
+            backend:
+              serviceName: produce-service
+              servicePort: 10080

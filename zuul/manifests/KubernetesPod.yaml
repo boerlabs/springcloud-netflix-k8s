@@ -1,0 +1,46 @@
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  labels:
+    jenkins-slave: true
+spec:
+  nodeSelector:
+    worker: jenkins
+  volumes:
+    - name: maven-cache
+      hostPath:
+        path: /var/lib/cache/.m2
+    - name: docker-sock
+      hostPath:
+        path: /var/run/docker.sock
+    - name: docker-cache
+      hostPath:
+        path: /var/lib/docker
+  containers:
+    - name: jnlp
+      image: jenkins/jnlp-slave:3.27-1
+      tty: true
+    - name: maven
+      image: maven:3.6.3-jdk-8
+      command:
+        - cat
+      tty: true
+      volumeMounts:
+        - mountPath: /root/.m2
+          name: maven-cache
+    - name: docker
+      image: docker:19.03.8
+      volumeMounts:
+        - mountPath: /var/run/docker.sock
+          name: docker-sock
+        - mountPath: /var/lib/docker
+          name: docker-cache
+      tty: true
+      command:
+        - cat
+    - name: kubectl
+      image: boer0924/kubectl:1.18.3
+      tty: true
+      command:
+        - cat

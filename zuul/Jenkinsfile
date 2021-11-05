@@ -1,0 +1,113 @@
+pipeline {
+  agent {
+    kubernetes {
+      label 'jenkins-worker'
+      defaultContainer 'jnlp'
+      yamlFile 'manifests/KubernetesPod.yaml'
+    }
+  }
+  parameters {
+    choice(name: 'ENV', choices: ['test', 'pre', 'prod'], description: '选择部署环境？')
+  }
+  environment {
+    AUTHOR = 'boer'
+    EMAIL = 'boer0924@gmail.com'
+    registryUrl = 'registry.meitianiot.lo'
+    image = "${registryUrl}/public/springcloud-zuul"
+    imageTag = sh(script: "git rev-parse --short HEAD", returnStdout: true).trim()
+    changeCause = sh(script: "git log --oneline -1 HEAD", returnStdout: true).trim()
+  }
+  stages {
+    stage('Test') {
+      steps {
+        echo "单元测试"
+        echo "TEST"
+        script {
+          if ("${params.ENV}" == 'test') {
+            env.NAMESPACE = 'default'
+            env.INGRESS = 'api'
+          }
+          if ("${params.ENV}" == 'pre') {
+            env.NAMESPACE = 'pre'
+            env.INGRESS = 'pre'
+          }
+          if ("${params.ENV}" == 'prod') {
+            env.NAMESPACE = 'prod'
+            env.INGRESS = 'prod'
+          }
+        }
+      }
+    }
+
+    stage('Maven') {
+      steps {
+        container('maven') {
+          echo "编译打包"
+          sh "mvn clean package -Dmaven.test.skip=true"
+        }
+      }
+    }
+
+    stage('Docker') {
+      environment {
+        registry = credentials('dockerhub')
+        registryUser = "${registry_USR}"
+        registryPass = "${registry_PSW}"
+      }
+      steps {
+        container('docker') {
+          echo "构建镜像"
+          sh '''
+          docker login ${registryUrl} -u ${registryUser} -p ${registryPass}
+          docker build -t ${image}:${imageTag} .
+          docker push ${image}:${imageTag}
+          '''
+        }
+      }
+    }
+
+    stage('K8S') {
+      environment {
+        kubeconfig = credentials('kubeconfig')
+      }
+      steps {
+        container('kubectl') {
+          echo "Kubernetes发布"
+          sh '''
+          # kubectl --kubeconfig ${kubeconfig} get pod -n ${NAMESPACE}
+          sed -i "s|<CHANGE_CAUSE>|${changeCause}|g" manifests/k8s.yaml
+          sed -i "s|<IMAGE>|${image}|g" manifests/k8s.yaml
+          sed -i "s|<IMAGE_TAG>|${imageTag}|g" manifests/k8s.yaml
+          sed -i "s|<INGRESS>|${INGRESS}|g" manifests/k8s.yaml
+          kubectl --kubeconfig $kubeconfig apply -f manifests/k8s.yaml -n ${NAMESPACE}
+          '''
+        }
+      }
+    }
+
+    stage('RollOut') {
+      environment {
+        kubeconfig = credentials('kubeconfig')
+      }
+      input {
+        id 'ROLLOUT'
+        message "是否快速回滚？"
+        ok "确认"
+        submitter ""
+        parameters {
+          choice(name: 'UNDO', choices: ['NO', 'YES'], description: '是否快速回滚？')
+        }
+      }
+      steps {
+        container('kubectl') {
+          echo "Kubernetes快速回滚"
+          script {
+            if ("${UNDO}" == 'YES') {
+              sh "kubectl --kubeconfig ${kubeconfig} rollout undo deployment zuul-deployment -n ${NAMESPACE}"
+            }
+          }
+        }
+      }
+    }
+  }
+}

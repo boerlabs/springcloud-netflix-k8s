@@ -1,0 +1,45 @@
+spring:
+  application:
+    name: springcloud-zuul
+  profiles:
+    active: ${ENVIRONMENT:pro}
+  redis:
+    host: 10.10.253.14
+    port: 6379
+server:
+  port: 8125
+hystrix:
+  command:
+    default:
+      execution:
+        isolation:
+          thread:
+            timeoutInMilliseconds: 1000
+zuul:
+  routes:
+    springboot-produce:
+      path: /api/produce/**
+    springboot-consume:
+      path: /api/consume/**
+  ratelimit:
+    enabled: true
+    repository: REDIS
+    key-prefix: zrl-
+    behind-proxy: true
+    add-response-headers: false
+    deny-request:
+      response-status-code: 404
+      origins:
+        - boer.xyz
+    default-policy-list:
+      - limit: 20
+        refresh-interval: 30
+        type:
+          - origin
+          - url
+    policy-list:
+      springboot-produce:
+        - limit: 5
+          refresh-interval: 60
+          type:
+            - url=/hello

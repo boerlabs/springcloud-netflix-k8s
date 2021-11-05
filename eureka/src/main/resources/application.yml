@@ -1,0 +1,7 @@
+spring:
+  application:
+    name: springcloud-eureka
+  profiles:
+    active: ${ENVIRONMENT:pro}
+server:
+  port: 8761

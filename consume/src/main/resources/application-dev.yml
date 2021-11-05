@@ -1,0 +1,23 @@
+eureka:
+  instance:
+    preferIpAddress: true
+  client:
+    serviceUrl:
+      defaultZone: http://127.0.0.1:8761/eureka
+management:
+  endpoint:
+    shutdown:
+      enabled: true
+  endpoints:
+    web:
+      exposure:
+        include: health,shutdown,prometheus
+spring:
+  devtools:
+    restart:
+      enabled: true
+  sleuth:
+    sampler:
+      rate: 1
+  zipkin:
+    base-url: http://10.10.253.11:9411/

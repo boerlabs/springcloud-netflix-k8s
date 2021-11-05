@@ -1,0 +1,22 @@
+eureka:
+  instance:
+    hostname: "${HOSTNAME}.eureka"
+  environment: "prod"
+  datacenter: "k8s"
+  client:
+    register-with-eureka: true
+    fetch-registry: true
+    serviceUrl:
+      defaultZone: ${EUREKA_SERVER_ADDRESS}
+management:
+  endpoints:
+    web:
+      base-path: /actuator/
+      exposure:
+        include: health,shutdown,prometheus
+  endpoint:
+    shutdown:
+      enabled: true
+  metrics:
+    tags:
+      application: ${spring.application.name}
